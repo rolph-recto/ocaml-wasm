@@ -48,10 +48,13 @@ CAMLOPT=$(CAMLRUN) ./ocamlopt -g -nostdlib -I stdlib -I otherlibs/dynlink
 ARCHES=amd64 i386 arm arm64 power s390x
 INCLUDES=-I utils -I parsing -I typing -I bytecomp -I middle_end \
         -I middle_end/base_types -I asmcomp -I asmcomp/debug \
-        -I driver -I toplevel
+        -I driver -I toplevel \
+				-I wasmcomp
 
+#COMPFLAGS=-strict-sequence -principal -absname -w +a-4-9-41-42-44-45-48 \
+#	  -warn-error A \
+#          -bin-annot -safe-string -strict-formats $(INCLUDES)
 COMPFLAGS=-strict-sequence -principal -absname -w +a-4-9-41-42-44-45-48 \
-	  -warn-error A \
           -bin-annot -safe-string -strict-formats $(INCLUDES)
 LINKFLAGS=
 
@@ -118,10 +121,35 @@ COMP=bytecomp/lambda.cmo bytecomp/printlambda.cmo \
 
 COMMON=$(UTILS) $(PARSING) $(TYPING) $(COMP)
 
+# bytecode compiler
+
 BYTECOMP=bytecomp/instruct.cmo bytecomp/bytegen.cmo \
   bytecomp/printinstr.cmo bytecomp/emitcode.cmo \
   bytecomp/bytelink.cmo bytecomp/bytelibrarian.cmo bytecomp/bytepackager.cmo \
   driver/errors.cmo driver/compile.cmo
+
+# WASM compiler
+
+WASMCOMP=bytecomp/instruct.cmo bytecomp/bytegen.cmo \
+  bytecomp/printinstr.cmo bytecomp/emitcode.cmo \
+  bytecomp/bytelink.cmo bytecomp/bytelibrarian.cmo bytecomp/bytepackager.cmo \
+	wasmcomp/wasm_numeric_error.cmo \
+	wasmcomp/wasm_int.cmo wasmcomp/wasm_float.cmo \
+	wasmcomp/wasm_i32.cmo wasmcomp/wasm_i64.cmo \
+	wasmcomp/wasm_f32.cmo wasmcomp/wasm_f64.cmo \
+	wasmcomp/wasm_i32_convert.cmo wasmcomp/wasm_i64_convert.cmo \
+	wasmcomp/wasm_f32_convert.cmo wasmcomp/wasm_f64_convert.cmo \
+	wasmcomp/wasm_lib.cmo wasmcomp/wasm_source.cmo \
+	wasmcomp/wasm_error.cmo wasmcomp/wasm_utf8.cmo \
+	wasmcomp/wasm_types.cmo wasmcomp/wasm_values.cmo \
+	wasmcomp/wasm_memory.cmo wasmcomp/wasm_ast.cmo \
+	wasmcomp/wasm_operators.cmo \
+	wasmcomp/wasm_sexpr.cmo wasmcomp/wasm_script.cmo \
+	wasmcomp/wasm_arrange.cmo wasmcomp/wasm_print.cmo \
+	wasmcomp/wasmgen.cmo \
+	driver/errors.cmo driver/wasmcompile.cmo
+
+# native compiler
 
 ARCH_SPECIFIC =\
   asmcomp/arch.ml asmcomp/proc.ml asmcomp/CSE.ml asmcomp/selection.ml \
@@ -252,6 +280,8 @@ TOPLEVEL=toplevel/genprintval.cmo toplevel/toploop.cmo \
 OPTTOPLEVEL=toplevel/genprintval.cmo toplevel/opttoploop.cmo \
   toplevel/opttopdirs.cmo toplevel/opttopmain.cmo
 BYTESTART=driver/main.cmo
+
+WASMSTART=driver/wasmmain.cmo
 
 OPTSTART=driver/optmain.cmo
 
@@ -591,6 +621,7 @@ endif
 	   parsing/*.cmi \
 	   typing/*.cmi \
 	   bytecomp/*.cmi \
+	   wasmcomp/*.cmi \
 	   driver/*.cmi \
 	   toplevel/*.cmi \
 	   "$(INSTALL_COMPLIBDIR)"
@@ -810,6 +841,21 @@ ocamlopt: compilerlibs/ocamlcommon.cma compilerlibs/ocamloptcomp.cma \
 
 partialclean::
 	rm -f ocamlopt
+
+# WASM compiler
+
+compilerlibs/ocamlwasmcomp.cma: $(WASMCOMP)
+	$(CAMLC) -a -o $@ $^
+
+partialclean::
+	rm -f compilerlibs/ocamlwasmcomp.cma
+
+ocamlwasm: compilerlibs/ocamlcommon.cma compilerlibs/ocamlwasmcomp.cma $(WASMSTART)
+	# $(CAMLOPT) $(LINKFLAGS) -o $@ $^
+	$(CAMLC) $(LINKFLAGS) -compat-32 -o $@ $^
+
+partialclean::
+	rm -rf ocamlwasm
 
 # The toplevel
 

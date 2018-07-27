@@ -251,3 +251,10 @@ _ocamltestd
 /yacc/ocamlyacc
 /yacc/version.h
 /yacc/.gdb_history
+
+# ocamlwasm
+bin/*
+lib/*
+man/*
+ocamlwasm
+tags
